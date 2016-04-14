@@ -24,12 +24,12 @@ if (cluster.isMaster) {
     const app = require('express')();
 
     app.all('/*', (req, res) => {
-        console.log('Process ' + process.pid + ' requested with ' + req.path);
+        console.log(`Process ${process.pid} requested with ${req.path}`);
         res.send(`process ${process.pid} says hello!`).end();
     });
 
     const server = app.listen(8000, () => {
-        console.log('Process ' + process.pid + ' is listening to all incoming requests');
+        console.log(`Process ${process.pid} is listening to all incoming requests`);
     });
 
     // kill the process after random time between 5 and 15 sec
@@ -40,8 +40,8 @@ if (cluster.isMaster) {
 }
 
 // catch all uncaughtExceptions
-process.on('uncaughtException', function (err) {
-    console.error((new Date).toUTCString() + ' uncaughtException:', err.message);
+process.on('uncaughtException', (err) => {
+    console.error(`${(new Date).toUTCString()} uncaughtException: ${err.message}`);
     console.error(err.stack);
     process.exit(1);
 });
