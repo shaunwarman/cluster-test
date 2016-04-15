@@ -1,16 +1,23 @@
 'use strict';
 
 const cluster = require('cluster');
+const ports = require('./config/config').ports;
+process['availablePort'] = { test: null };
 
 if (cluster.isMaster) {
     const numWorkers = require('os').cpus().length;
 
     console.log(`Master cluster setting up ${numWorkers} workers...`);
 
-    for (var i = 0; i < numWorkers; i++) {
-        let port = 8000 + i;
-        cluster.fork({port: port});
-    }
+    ports.forEach((port) => {
+        // fork with unique port
+        cluster.fork({ port: port });
+    });
+
+    cluster.on('message', (msg) => {
+        console.log(`Message received from ${msg.worker} on port ${msg.port}` );
+        process['availablePort'][`${msg.worker}`] = msg.port;
+    });
 
     cluster.on('online', (worker) => {
         console.log(`Worker ${worker.process.pid} is online`);
@@ -22,12 +29,16 @@ if (cluster.isMaster) {
     });
 
     cluster.on('exit', (worker, code, signal) => {
+        const usePort = process['availabePort'][`${worker.process.pid}`];
+        delete process['availabePort'][`${worker.process.pid}`];
+
         console.log(`Worker ${worker.process.pid} died with code: ${code}, and signal: ${signal}`);
-        console.log('Starting a new worker');
-        cluster.fork();
+        cluster.fork({ port: usePort });
     });
 } else {
     const app = require('express')();
+
+    process['availablePort'][`${process.pid}`] = process.env.port;
 
     app.all('/*', (req, res) => {
         console.log(`Process ${process.pid} requested with ${req.path}`);
@@ -36,6 +47,7 @@ if (cluster.isMaster) {
 
     const server = app.listen(process.env.port, () => {
         console.log(`Process ${process.pid} is listening to all incoming requests on port ${process.env.port}`);
+        process.send({ worker: process.pid, port: process.env.port });
     });
 
     sendKill();
